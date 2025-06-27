@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Australia Weather Rain Prediction</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body>
+        <div class="background">
+            <div class="weather-icons">
+                <i class="fas fa-cloud"></i>
+                <i class="fas fa-sun"></i>
+                <i class="fas fa-cloud-rain"></i>
+                <i class="fas fa-wind"></i>
+                <i class="fas fa-snowflake"></i>
+            </div>
+        </div>
+        
+        <div class="container">
+            <div class="header">
+                <i class="fas fa-cloud-rain header-icon"></i>
+                <h1>Australia Weather Rain Prediction</h1>
+                <p class="subtitle">Predict tomorrow's rainfall based on today's weather conditions</p>
+            </div>
+
+            {% if error_message %}
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {{ error_message }}
+                </div>
+            {% endif %}
+
+            <div class="info-panel">
+                <div class="info-header">
+                    <i class="fas fa-lightbulb"></i>
+                    <h3>Input Guidelines</h3>
+                </div>
+                <div class="info-content">
+                    <div class="info-section">
+                        <h4><i class="fas fa-map-marker-alt"></i> Location Codes:</h4>
+                        <p>Adelaide (0), Albany (1), Albury (2), AliceSprings (3), BadgerysCreek (4), Ballarat (5), Bendigo (6), Brisbane (7), Cairns (8), Canberra (9), Cobar (10), CoffsHarbour (11), Dartmoor (12), Darwin (13), GoldCoast (14), Hobart (15), Katherine (16), Launceston (17), Melbourne (18), MelbourneAirport (19), Mildura (20), Moree (21), MountGambier (22), MountGinini (23), Newcastle (24), Nhil (25), NorahHead (26), NorfolkIsland (27), Nuriootpa (28), PearceRAAF (29), Penrith (30), Perth (31), PerthAirport (32), Portland (33), Richmond (34), Sale (35), Sydney (36), SydneyAirport (37), Townsville (38), Tuggeranong (39), Uluru (40), WaggaWagga (41), Walpole (42), Watsonia (43), Williamtown (44), Witchcliffe (45), Wollongong (46), Woomera (47), Wyndham (48)</p>
+                    </div>
+                    <div class="info-section">
+                        <h4><i class="fas fa-wind"></i> Wind Direction Codes:</h4>
+                        <p>E (0), ENE (1), ESE (2), N (3), NE (4), NNE (5), NNW (6), NW (7), S (8), SE (9), SSE (10), SSW (11), SW (12), W (13), WNW (14), WSW (15)</p>
+                    </div>
+                    <div class="info-section">
+                        <h4><i class="fas fa-cloud-rain"></i> Rain Today:</h4>
+                        <p>No (0), Yes (1)</p>
+                    </div>
+                </div>
+            </div>
+
+            <form id="prediction-form" class="prediction-form">
+                <div class="form-grid">
+                    {% set feature_groups = {
+                        'Location & Time': ['Location', 'Year', 'Month', 'Day'],
+                        'Temperature': ['MinTemp', 'MaxTemp', 'Temp9am', 'Temp3pm'],
+                        'Rainfall & Weather': ['Rainfall', 'RainToday', 'Evaporation', 'Sunshine'],
+                        'Wind Conditions': ['WindGustDir', 'WindGustSpeed', 'WindDir9am', 'WindDir3pm', 'WindSpeed9am', 'WindSpeed3pm'],
+                        'Atmospheric Conditions': ['Humidity9am', 'Humidity3pm', 'Pressure9am', 'Pressure3pm', 'Cloud9am', 'Cloud3pm']
+                    } %}
+                    
+                    {% for group_name, group_features in feature_groups.items() %}
+                        <div class="form-section">
+                            <h3 class="section-title">
+                                {% if group_name == 'Location & Time' %}
+                                    <i class="fas fa-map-marker-alt"></i>
+                                {% elif group_name == 'Temperature' %}
+                                    <i class="fas fa-thermometer-half"></i>
+                                {% elif group_name == 'Rainfall & Weather' %}
+                                    <i class="fas fa-cloud-rain"></i>
+                                {% elif group_name == 'Wind Conditions' %}
+                                    <i class="fas fa-wind"></i>
+                                {% elif group_name == 'Atmospheric Conditions' %}
+                                    <i class="fas fa-eye"></i>
+                                {% endif %}
+                                {{ group_name }}
+                            </h3>
+                            
+                            {% for feature in group_features %}
+                                <div class="form-group">
+                                    <label for="{{ feature }}">
+                                        {{ feature.replace('9am', ' (9 AM)').replace('3pm', ' (3 PM)') }}:
+                                        {% if field_info[feature]['unit'] %}
+                                            <span class="unit">({{ field_info[feature]['unit'] }})</span>
+                                        {% endif %}
+                                    </label>
+                                    <input type="number" 
+                                           step="any" 
+                                           name="{{ feature }}" 
+                                           id="{{ feature }}"
+                                           placeholder="{{ field_info[feature]['example'] }}"
+                                           title="{{ field_info[feature]['description'] }} - Range: {{ field_info[feature]['range'] }}"
+                                           required>
+                                    <div class="field-help">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span class="help-text">{{ field_info[feature]['description'] }}</span>
+                                        <span class="range-text">Range: {{ field_info[feature]['range'] }}</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="submit" class="predict-btn" id="predict-btn">
+                    <i class="fas fa-magic"></i>
+                    Predict Rain Tomorrow
+                </button>
+            </form>
+
+            <!-- Prediction Result - Always visible but hidden initially -->
+            <div id="prediction-result" class="prediction-result" style="display: none;">
+                <div class="prediction-icon" id="prediction-icon">
+                    <i class="fas fa-cloud-rain"></i>
+                </div>
+                <h2>Tomorrow's Rain Prediction</h2>
+                <div id="prediction-value" class="prediction-value">
+                    --
+                </div>
+                <p id="prediction-description" class="prediction-description">
+                    Enter weather data above to get prediction
+                </p>
+            </div>
+
+            <!-- Error Message Container -->
+            <div id="error-container" class="error-message" style="display: none;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="error-text"></span>
+            </div>
+
+            {% if prediction is not none %}
+                <div class="prediction-result">
+                    <div class="prediction-icon">
+                        {% if prediction == 'YES' %}
+                            <i class="fas fa-cloud-rain rain-yes"></i>
+                        {% else %}
+                            <i class="fas fa-sun rain-no"></i>
+                        {% endif %}
+                    </div>
+                    <h2>Tomorrow's Rain Prediction</h2>
+                    <div class="prediction-value {{ 'rain-yes' if prediction == 'YES' else 'rain-no' }}">
+                        {{ prediction }}
+                    </div>
+                    <p class="prediction-description">
+                        {% if prediction == 'YES' %}
+                            It will likely rain tomorrow. Don't forget your umbrella! ☔
+                        {% else %}
+                            No rain expected tomorrow. Perfect weather for outdoor activities! ☀️
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+
+        <script>
+            // Add some interactivity
+            document.addEventListener('DOMContentLoaded', function() {
+                const form = document.getElementById('prediction-form');
+                const inputs = document.querySelectorAll('input[type="number"]');
+                const predictBtn = document.getElementById('predict-btn');
+                const predictionResult = document.getElementById('prediction-result');
+                const predictionIcon = document.getElementById('prediction-icon');
+                const predictionValue = document.getElementById('prediction-value');
+                const predictionDescription = document.getElementById('prediction-description');
+                const errorContainer = document.getElementById('error-container');
+                const errorText = document.getElementById('error-text');
+                
+                // Add focus animations
+                inputs.forEach(input => {
+                    input.addEventListener('focus', function() {
+                        this.parentElement.classList.add('focused');
+                    });
+                    
+                    input.addEventListener('blur', function() {
+                        this.parentElement.classList.remove('focused');
+                    });
+                });
+                
+                // Handle form submission with AJAX
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault(); // Prevent default form submission
+                    
+                    // Show loading state
+                    predictBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Predicting...';
+                    predictBtn.disabled = true;
+                    
+                    // Hide any previous errors
+                    errorContainer.style.display = 'none';
+                    
+                    // Collect form data
+                    const formData = new FormData(form);
+                    
+                    // Make AJAX request
+                    fetch('/predict', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Reset button state
+                        predictBtn.innerHTML = '<i class="fas fa-magic"></i> Predict Rain Tomorrow';
+                        predictBtn.disabled = false;
+                        
+                        if (data.success) {
+                            // Show prediction result
+                            displayPrediction(data.prediction, data.message);
+                        } else {
+                            // Show error
+                            showError(data.error);
+                        }
+                    })
+                    .catch(error => {
+                        // Reset button state
+                        predictBtn.innerHTML = '<i class="fas fa-magic"></i> Predict Rain Tomorrow';
+                        predictBtn.disabled = false;
+                        
+                        console.error('Error:', error);
+                        showError('An error occurred while making the prediction. Please try again.');
+                    });
+                });
+                
+                function displayPrediction(prediction, message) {
+                    // Update prediction content
+                    predictionValue.textContent = prediction;
+                    predictionDescription.textContent = message;
+                    
+                    // Update icon and styling
+                    predictionIcon.innerHTML = prediction === 'YES' 
+                        ? '<i class="fas fa-cloud-rain rain-yes"></i>' 
+                        : '<i class="fas fa-sun rain-no"></i>';
+                    
+                    // Update prediction value styling
+                    predictionValue.className = 'prediction-value ' + (prediction === 'YES' ? 'rain-yes' : 'rain-no');
+                    
+                    // Show result with animation
+                    predictionResult.style.display = 'block';
+                    predictionResult.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                    
+                    // Add pulse animation to draw attention
+                    predictionResult.classList.add('pulse-animation');
+                    setTimeout(() => {
+                        predictionResult.classList.remove('pulse-animation');
+                    }, 1000);
+                }
+                
+                function showError(errorMessage) {
+                    errorText.textContent = errorMessage;
+                    errorContainer.style.display = 'flex';
+                    errorContainer.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }
+            });
+        </script>
+    </body>
+</html>
