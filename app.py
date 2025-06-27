@@ -101,5 +101,29 @@ def predict():
             'details': str(e)
         })
 
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Health check endpoint for Kubernetes probes"""
+    try:
+        # Basic health check - ensure model is loaded
+        if model is not None:
+            return jsonify({
+                'status': 'healthy',
+                'message': 'Rain prediction service is running',
+                'model_loaded': True
+            }), 200
+        else:
+            return jsonify({
+                'status': 'unhealthy',
+                'message': 'Model not loaded',
+                'model_loaded': False
+            }), 503
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'message': f'Health check failed: {str(e)}',
+            'model_loaded': False
+        }), 503
+
 if __name__=="__main__":
     app.run(debug=True , port=5000 , host="0.0.0.0")

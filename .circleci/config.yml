@@ -27,8 +27,22 @@ jobs:
       - run:
           name: Build and Push Image
           command: |
-              docker build -t asia-south1-docker.pkg.dev/$GOOGLE_PROJECT_ID/rain-prediction/rain:latest .
+              # Use CircleCI build number for better versioning
+              IMAGE_TAG="build-${CIRCLE_BUILD_NUM}"
+              IMAGE_NAME="asia-south1-docker.pkg.dev/$GOOGLE_PROJECT_ID/rain-prediction/rain:$IMAGE_TAG"
+              
+              echo "Building image: $IMAGE_NAME"
+              docker build -t $IMAGE_NAME .
+              
+              echo "Pushing image: $IMAGE_NAME"
+              docker push $IMAGE_NAME
+              
+              # Also tag and push as latest
+              docker tag $IMAGE_NAME asia-south1-docker.pkg.dev/$GOOGLE_PROJECT_ID/rain-prediction/rain:latest
               docker push asia-south1-docker.pkg.dev/$GOOGLE_PROJECT_ID/rain-prediction/rain:latest
+              
+              # Save the image tag for the deploy job
+              echo "export IMAGE_TAG=$IMAGE_TAG" >> $BASH_ENV
 
   deploy_to_gke:
     executor: docker-executor
@@ -45,10 +59,22 @@ jobs:
       - run:
           name: Configure GKE
           command: |
-              gcloud container clusters get-credentials $GKE_CLUSTER --region $GOOGLE_COMPUTE_REGION --project $GOOGLE_PROJECT_ID
+              gcloud container clusters get-credentials $GKE_CLUSTER --zone $GOOGLE_COMPUTE_ZONE --project $GOOGLE_PROJECT_ID
+      
       - run:
           name: Deploy to GKE
           command: |
+              # Use the build number for consistent tagging, fallback to latest
+              IMAGE_TAG=${IMAGE_TAG:-"build-${CIRCLE_BUILD_NUM}"}
+              
+              # Replace placeholders in kubernetes deployment
+              sed -i "s/PROJECT_ID_PLACEHOLDER/$GOOGLE_PROJECT_ID/g" kubernetes-deployment.yaml
+              sed -i "s/TAG_PLACEHOLDER/$IMAGE_TAG/g" kubernetes-deployment.yaml
+              
+              # Show the updated deployment file for debugging
+              echo "Updated kubernetes-deployment.yaml:"
+              grep "image:" kubernetes-deployment.yaml
+              
               kubectl apply -f kubernetes-deployment.yaml
 
 workflows:

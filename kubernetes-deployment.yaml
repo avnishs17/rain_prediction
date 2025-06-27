@@ -20,10 +20,10 @@ spec:
         # Resource limits and health checks
         resources:
           requests:
-            memory: "1024Mi"
-            cpu: "200"
-          limits:
             memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1024Mi"
             cpu: "500m"
         # Liveness and readiness probes
         livenessProbe:
