@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: rain
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: rain
@@ -20,8 +20,8 @@ spec:
         # Resource limits and health checks
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: "1024Mi"
+            cpu: "200"
           limits:
             memory: "512Mi"
             cpu: "500m"
