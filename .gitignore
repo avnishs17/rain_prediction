@@ -1,7 +1,7 @@
 logs/*
 # .circleci/*
 # .github/*
-.gitlab-ci.yml
+# .gitlab-ci.yml
 gcp-key.json
 # Byte-compiled / optimized / DLL files
 __pycache__/
