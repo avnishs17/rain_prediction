@@ -1,0 +1,90 @@
+image: google/cloud-sdk:latest
+
+stages:
+  - checkout
+  - build
+  - deploy
+
+variables:
+  PROJECT_ID: "<GCP_PROJECT_ID"  # change with your google project id and also change other things too
+  ZONE: "africa-south1-a"
+  REPO: "rain-prediction"
+  REGISTRY: "asia-south1-docker.pkg.dev"
+  CLUSTER: "rain"
+
+checkout_code:
+  stage: checkout
+  script:
+    - echo "Code Checked out.."
+
+build_docker_image:
+  stage: build
+  services:
+    - name: docker:dind
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    # Install jq for JSON validation
+    - apt-get update && apt-get install -y jq
+    # Debug: Check if GCP_SA_KEY is set
+    - echo "Checking GCP_SA_KEY variable..."
+    - |
+      if [ -z "$GCP_SA_KEY" ]; then
+        echo "ERROR: GCP_SA_KEY is not set!"
+        exit 1
+      fi
+    # Create service account key file
+    - echo "$GCP_SA_KEY" | base64 -d > key.json || (echo "Failed to decode GCP_SA_KEY" && exit 1)
+    # Verify the key file is valid JSON
+    - cat key.json | jq . > /dev/null || (echo "Invalid JSON in service account key" && exit 1)
+    - gcloud auth activate-service-account --key-file=key.json
+    - gcloud auth configure-docker $REGISTRY
+  script:
+    - IMAGE_TAG="build-${CI_PIPELINE_ID}"
+    - IMAGE_NAME="$REGISTRY/$PROJECT_ID/$REPO/rain:$IMAGE_TAG"
+    - echo "Building image - $IMAGE_NAME"
+    - docker build -t $IMAGE_NAME .
+    - echo "Pushing image - $IMAGE_NAME"
+    - docker push $IMAGE_NAME
+    - docker tag $IMAGE_NAME $REGISTRY/$PROJECT_ID/$REPO/rain:latest
+    - docker push $REGISTRY/$PROJECT_ID/$REPO/rain:latest
+    - echo "IMAGE_TAG=$IMAGE_TAG" > build_info.env
+  artifacts:
+    reports:
+      dotenv: build_info.env
+
+deploy_to_gke:
+  stage: deploy
+  before_script:
+    # Install jq for JSON validation
+    - apt-get update && apt-get install -y jq
+    # Debug: Check if GCP_SA_KEY is set
+    - echo "Checking GCP_SA_KEY variable..."
+    - |
+      if [ -z "$GCP_SA_KEY" ]; then
+        echo "ERROR: GCP_SA_KEY is not set!"
+        exit 1
+      fi
+    # Create service account key file
+    - echo "$GCP_SA_KEY" | base64 -d > key.json || (echo "Failed to decode GCP_SA_KEY" && exit 1)
+    # Verify the key file is valid JSON
+    - cat key.json | jq . > /dev/null || (echo "Invalid JSON in service account key" && exit 1)
+    - gcloud auth activate-service-account --key-file=key.json
+    - gcloud auth configure-docker $REGISTRY
+  script:
+    # Use the image tag from build job, fallback to pipeline ID
+    - IMAGE_TAG=${IMAGE_TAG:-"build-${CI_PIPELINE_ID}"}
+    
+    # Replace placeholders in kubernetes deployment
+    - sed -i "s/PROJECT_ID_PLACEHOLDER/$PROJECT_ID/g" kubernetes-deployment.yaml
+    - sed -i "s/TAG_PLACEHOLDER/$IMAGE_TAG/g" kubernetes-deployment.yaml
+    
+    # Show the updated deployment file for debugging
+    - echo "Updated kubernetes-deployment.yaml:"
+    - grep "image:" kubernetes-deployment.yaml
+    
+    # Deploy to GKE
+    - gcloud container clusters get-credentials $CLUSTER --zone $ZONE --project $PROJECT_ID
+    - kubectl apply -f kubernetes-deployment.yaml
