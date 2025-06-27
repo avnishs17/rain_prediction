@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: rain
-        image: us-central1-docker.pkg.dev/PROJECT_ID_PLACEHOLDER/rain-prediction/rain:TAG_PLACEHOLDER
+        image: asia-south1-docker.pkg.dev/PROJECT_ID_PLACEHOLDER/rain-prediction/rain:TAG_PLACEHOLDER
         ports:
         - containerPort: 5000
         # Resource limits and health checks

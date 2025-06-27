@@ -33,11 +33,11 @@ jobs:
       - name: Configure GCloud and Docker
         run: |
           gcloud config set project "$PROJECT_ID"
-          gcloud auth configure-docker us-central1-docker.pkg.dev
+          gcloud auth configure-docker asia-south1-docker.pkg.dev
 
       - name: Build and Push Docker Image
         run: |
-          IMAGE_NAME="us-central1-docker.pkg.dev/${PROJECT_ID}/rain-prediction/rain:${GITHUB_SHA}"
+          IMAGE_NAME="asia-south1-docker.pkg.dev/${PROJECT_ID}/rain-prediction/rain:${GITHUB_SHA}"
           
           echo "Building image: $IMAGE_NAME"
           docker build -t $IMAGE_NAME .
