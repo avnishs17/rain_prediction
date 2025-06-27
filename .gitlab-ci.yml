@@ -26,6 +26,8 @@ build_docker_image:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
   before_script:
+    # Install jq for JSON validation
+    - apt-get update && apt-get install -y jq
     # Debug: Check if GCP_SA_KEY is set
     - echo "Checking GCP_SA_KEY variable..."
     - |
@@ -56,6 +58,8 @@ build_docker_image:
 deploy_to_gke:
   stage: deploy
   before_script:
+    # Install jq for JSON validation
+    - apt-get update && apt-get install -y jq
     # Debug: Check if GCP_SA_KEY is set
     - echo "Checking GCP_SA_KEY variable..."
     - |
@@ -84,6 +88,3 @@ deploy_to_gke:
     # Deploy to GKE
     - gcloud container clusters get-credentials $CLUSTER --zone $ZONE --project $PROJECT_ID
     - kubectl apply -f kubernetes-deployment.yaml
-
-
-
