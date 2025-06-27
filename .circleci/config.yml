@@ -1,0 +1,90 @@
+version: 2.1
+
+executors:
+  docker-executor:
+    docker:
+      - image: google/cloud-sdk:latest
+    working_directory: ~/repo
+
+jobs:
+  checkout_code:
+    executor: docker-executor
+    steps:
+      - checkout
+
+  build_docker_image:
+    executor: docker-executor
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Authenticate with google cloud
+          command: |
+              echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
+              gcloud auth activate-service-account --key-file=gcp-key.json
+              gcloud auth configure-docker asia-south1-docker.pkg.dev || gcloud auth configure-docker
+
+      - run:
+          name: Build and Push Image
+          command: |
+              # Use CircleCI build number for better versioning
+              IMAGE_TAG="build-${CIRCLE_BUILD_NUM}"
+              IMAGE_NAME="asia-south1-docker.pkg.dev/$GOOGLE_PROJECT_ID/rain-prediction/rain:$IMAGE_TAG"
+              
+              echo "Building image: $IMAGE_NAME"
+              docker build -t $IMAGE_NAME .
+              
+              echo "Pushing image: $IMAGE_NAME"
+              docker push $IMAGE_NAME
+              
+              # Also tag and push as latest
+              docker tag $IMAGE_NAME asia-south1-docker.pkg.dev/$GOOGLE_PROJECT_ID/rain-prediction/rain:latest
+              docker push asia-south1-docker.pkg.dev/$GOOGLE_PROJECT_ID/rain-prediction/rain:latest
+              
+              # Save the image tag for the deploy job
+              echo "export IMAGE_TAG=$IMAGE_TAG" >> $BASH_ENV
+
+  deploy_to_gke:
+    executor: docker-executor
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Authenticate with google cloud
+          command: |
+              echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
+              gcloud auth activate-service-account --key-file=gcp-key.json
+              gcloud auth configure-docker asia-south1-docker.pkg.dev || gcloud auth configure-docker
+      
+      - run:
+          name: Configure GKE
+          command: |
+              gcloud container clusters get-credentials $GKE_CLUSTER --zone $GOOGLE_COMPUTE_ZONE --project $GOOGLE_PROJECT_ID
+      
+      - run:
+          name: Deploy to GKE
+          command: |
+              # Use the build number for consistent tagging, fallback to latest
+              IMAGE_TAG=${IMAGE_TAG:-"build-${CIRCLE_BUILD_NUM}"}
+              
+              # Replace placeholders in kubernetes deployment
+              sed -i "s/PROJECT_ID_PLACEHOLDER/$GOOGLE_PROJECT_ID/g" kubernetes-deployment.yaml
+              sed -i "s/TAG_PLACEHOLDER/$IMAGE_TAG/g" kubernetes-deployment.yaml
+              
+              # Show the updated deployment file for debugging
+              echo "Updated kubernetes-deployment.yaml:"
+              grep "image:" kubernetes-deployment.yaml
+              
+              kubectl apply -f kubernetes-deployment.yaml
+
+workflows:
+  version: 2
+  deploy_pipeline:
+    jobs:
+      - checkout_code
+      - build_docker_image:
+          requires:
+            - checkout_code
+      - deploy_to_gke:
+          requires:
+            - build_docker_image
