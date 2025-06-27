@@ -1,6 +1,6 @@
 logs/*
-# .circleci/*
-# .github/*
+.circleci/*
+.github/*
 # .gitlab-ci.yml
 gcp-key.json
 # Byte-compiled / optimized / DLL files
