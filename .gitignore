@@ -1,4 +1,7 @@
 logs/*
+.circleci/*
+.github/*
+
 gcp-key.json
 # Byte-compiled / optimized / DLL files
 __pycache__/
